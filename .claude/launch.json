@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hosmos-dev",
+      "runtimeExecutable": "/Users/pavel/.local/node-v20.11.1-darwin-arm64/bin/npx",
+      "runtimeArgs": ["next", "dev"],
+      "port": 3000
+    }
+  ]
+}
