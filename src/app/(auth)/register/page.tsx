@@ -62,6 +62,13 @@ export default function RegisterPage() {
       }
     }
 
+    // If user got a session (auto-confirmed), go straight to dashboard
+    if (data.session) {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    // Otherwise show "check your email"
     setSuccess(true);
     setLoading(false);
   };
