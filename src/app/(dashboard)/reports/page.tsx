@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/Badge";
 import { FileText, Download, Clock, CheckCircle2, Lock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ReportData } from "@/lib/pdf/generate-report";
+import { usePlan } from "@/hooks/usePlan";
+import { canAccessReport, getRequiredPlan } from "@/lib/plans";
+import Link from "next/link";
 
 const reportTemplates = [
   {
@@ -79,6 +82,7 @@ function makeDemoMonthly(total: number) {
 
 export default function ReportsPage() {
   const [generating, setGenerating] = useState<string | null>(null);
+  const { plan } = usePlan();
 
   const handleGenerate = async (reportId: string) => {
     setGenerating(reportId);
@@ -204,54 +208,60 @@ export default function ReportsPage() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Templates</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {reportTemplates.map((report) => (
-              <Card key={report.id} hover className={!report.available ? "opacity-70" : ""}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="p-2 rounded-xl bg-violet-50">
-                    <FileText size={20} className="text-violet-500" />
-                  </div>
-                  <Badge
-                    variant={
-                      report.tier === "starter"
-                        ? "blue"
-                        : report.tier === "pro"
-                        ? "violet"
-                        : "gray"
-                    }
-                  >
-                    {report.tier.toUpperCase()}
-                  </Badge>
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-1">{report.name}</h4>
-                <p className="text-xs text-gray-500 mb-4">{report.description}</p>
-                <div className="space-y-1 mb-5">
-                  {report.sections.map((s) => (
-                    <div key={s} className="flex items-center gap-2 text-xs text-gray-400">
-                      <CheckCircle2 size={12} className="text-green-400" />
-                      {s}
+            {reportTemplates.map((report) => {
+              const hasAccess = canAccessReport(plan, report.id);
+              const requiredPlan = getRequiredPlan(report.id);
+              return (
+                <Card key={report.id} hover className={!hasAccess ? "opacity-70" : ""}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="p-2 rounded-xl bg-violet-50">
+                      <FileText size={20} className="text-violet-500" />
                     </div>
-                  ))}
-                </div>
-                {report.available ? (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleGenerate(report.id)}
-                    disabled={generating !== null}
-                  >
-                    {generating === report.id ? (
-                      <><Loader2 size={14} className="mr-2 animate-spin" /> Generating...</>
-                    ) : (
-                      <><Download size={14} className="mr-2" /> Generate Report</>
-                    )}
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="secondary" className="w-full" disabled>
-                    <Lock size={14} className="mr-2" /> Upgrade to {report.tier}
-                  </Button>
-                )}
-              </Card>
-            ))}
+                    <Badge
+                      variant={
+                        report.tier === "starter"
+                          ? "blue"
+                          : report.tier === "pro"
+                          ? "violet"
+                          : "gray"
+                      }
+                    >
+                      {report.tier.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-1">{report.name}</h4>
+                  <p className="text-xs text-gray-500 mb-4">{report.description}</p>
+                  <div className="space-y-1 mb-5">
+                    {report.sections.map((s) => (
+                      <div key={s} className="flex items-center gap-2 text-xs text-gray-400">
+                        <CheckCircle2 size={12} className={hasAccess ? "text-green-400" : "text-gray-300"} />
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                  {hasAccess ? (
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleGenerate(report.id)}
+                      disabled={generating !== null}
+                    >
+                      {generating === report.id ? (
+                        <><Loader2 size={14} className="mr-2 animate-spin" /> Generating...</>
+                      ) : (
+                        <><Download size={14} className="mr-2" /> Generate Report</>
+                      )}
+                    </Button>
+                  ) : (
+                    <Link href="/settings" className="block">
+                      <Button size="sm" variant="secondary" className="w-full">
+                        <Lock size={14} className="mr-2" /> Upgrade to {requiredPlan}
+                      </Button>
+                    </Link>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </div>
 

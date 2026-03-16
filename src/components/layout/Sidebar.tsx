@@ -19,17 +19,19 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { usePlan } from "@/hooks/usePlan";
+import { Lock } from "lucide-react";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/calculator", label: "Carbon Calculator", icon: Flame },
-  { href: "/people", label: "People & Social", icon: Users, badge: "S" },
-  { href: "/governance", label: "Governance", icon: Shield, badge: "G" },
-  { href: "/reports", label: "Reports", icon: FileText },
-  { href: "/supply-chain", label: "Supply Chain", icon: Link2, pro: true },
-  { href: "/goals", label: "Goals & OKR", icon: Target, pro: true },
-  { href: "/data-sources", label: "Data Sources", icon: Database },
-  { href: "/settings", label: "Settings", icon: Settings },
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, feature: null },
+  { href: "/calculator", label: "Carbon Calculator", icon: Flame, feature: null },
+  { href: "/people", label: "People & Social", icon: Users, badge: "S", feature: "socialParams" as const },
+  { href: "/governance", label: "Governance", icon: Shield, badge: "G", feature: "governanceParams" as const },
+  { href: "/reports", label: "Reports", icon: FileText, feature: null },
+  { href: "/supply-chain", label: "Supply Chain", icon: Link2, feature: "supplyChain" as const },
+  { href: "/goals", label: "Goals & OKR", icon: Target, feature: "goals" as const },
+  { href: "/data-sources", label: "Data Sources", icon: Database, feature: null },
+  { href: "/settings", label: "Settings", icon: Settings, feature: null },
 ];
 
 export function Sidebar() {
@@ -39,6 +41,7 @@ export function Sidebar() {
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
   const [userInitials, setUserInitials] = useState("??");
+  const { features } = usePlan();
 
   useEffect(() => {
     const supabase = createClient();
@@ -98,15 +101,18 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
+          const isLocked = item.feature ? !features[item.feature] : false;
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={isLocked ? "/settings" : item.href}
               className={clsx(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
-                isActive
+                isLocked
+                  ? "text-gray-400 hover:bg-gray-50 opacity-60"
+                  : isActive
                   ? "bg-blue-50 text-blue-600"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
@@ -115,22 +121,19 @@ export function Sidebar() {
                 size={20}
                 className={clsx(
                   "flex-shrink-0",
-                  isActive ? "text-blue-500" : "text-gray-400"
+                  isLocked ? "text-gray-300" : isActive ? "text-blue-500" : "text-gray-400"
                 )}
               />
               {!collapsed && (
                 <>
                   <span className="text-sm font-semibold truncate">{item.label}</span>
-                  {item.pro && (
-                    <span className="ml-auto text-[10px] font-semibold bg-violet-50 text-violet-500 px-1.5 py-0.5 rounded-full">
-                      PRO
-                    </span>
-                  )}
-                  {item.badge && (
+                  {isLocked ? (
+                    <Lock size={12} className="ml-auto text-gray-300" />
+                  ) : item.badge ? (
                     <span className="ml-auto text-[10px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
                       {item.badge}
                     </span>
-                  )}
+                  ) : null}
                 </>
               )}
             </Link>

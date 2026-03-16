@@ -21,6 +21,9 @@ import {
 import Link from "next/link";
 import { DEMO_DASHBOARD, DEMO_SCOPE1, DEMO_SCOPE2, DEMO_SCOPE3 } from "@/data/seed-company";
 import { createClient } from "@/lib/supabase/client";
+import { usePlan } from "@/hooks/usePlan";
+import { Crown } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 // Monthly breakdown (pro-rata from annual totals)
 const monthlyEmissions = [
@@ -52,6 +55,7 @@ export default function DashboardPage() {
   const [scope1, setScope1] = useState(DEMO_SCOPE1);
   const [scope2, setScope2] = useState(DEMO_SCOPE2);
   const [scope3, setScope3] = useState(DEMO_SCOPE3);
+  const { plan, features } = usePlan();
 
   useEffect(() => {
     async function loadData() {
@@ -106,7 +110,7 @@ export default function DashboardPage() {
               setScope2({ locationBased_tCO2e: results.scope2_location || 0, marketBased_tCO2e: results.scope2_market || 0, total_tCO2e: results.scope2_location || 0 });
               setScope3({ categories: [], total_tCO2e: results.scope3_total || 0 });
 
-              const total = results.total || 0;
+              const total = results.total_tco2e || 0;
               setDashboard(prev => ({
                 ...prev,
                 scope1: results.scope1_total || prev.scope1,
@@ -152,9 +156,31 @@ export default function DashboardPage() {
       />
 
       <div className="p-8 space-y-8">
+        {/* Trial Banner */}
+        {plan === "trial" && (
+          <div className="bg-gradient-to-r from-blue-500 to-violet-500 rounded-2xl p-5 text-white">
+            <div className="flex items-center gap-4">
+              <Crown size={28} className="opacity-80" />
+              <div className="flex-1">
+                <h3 className="font-semibold">Free Trial — Limited Features</h3>
+                <p className="text-sm opacity-80 mt-0.5">
+                  Scope 3, People, Governance and ESRS reports are locked. Upgrade to unlock.
+                </p>
+              </div>
+              <Link href="/settings">
+                <Button variant="secondary" className="bg-white text-blue-600 hover:bg-blue-50 border-0" size="sm">
+                  Upgrade
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Plan Badge */}
         <div className="flex items-center gap-3">
-          <Badge variant="blue">Starter Plan</Badge>
+          <Badge variant={plan === "trial" ? "gray" : plan === "pro" ? "violet" : "blue"}>
+            {features.name} Plan
+          </Badge>
           <span className="text-xs text-gray-400">
             Reporting year: {d.reportingYear} · {d.company.headcount} employees · NACE {d.company.naceCode}
           </span>
@@ -336,19 +362,31 @@ export default function DashboardPage() {
 
           {/* Scope 3 Detail */}
           <Card>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Scope 3 (Starter)</h3>
-            <div className="space-y-2">
-              {scope3.categories.map((cat) => (
-                <div key={cat.id} className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">Cat. {cat.id}: {cat.name}</span>
-                  <span className="text-sm font-medium text-gray-900">{cat.tCO2e} t</span>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              Scope 3 {!features.scope3 && <Lock size={12} className="inline text-gray-400 ml-1" />}
+            </h3>
+            {features.scope3 ? (
+              <div className="space-y-2">
+                {scope3.categories.map((cat) => (
+                  <div key={cat.id} className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500">Cat. {cat.id}: {cat.name}</span>
+                    <span className="text-sm font-medium text-gray-900">{cat.tCO2e} t</span>
+                  </div>
+                ))}
+                <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
+                  <span className="text-xs font-semibold text-gray-700">Total</span>
+                  <span className="text-sm font-bold text-green-600">{scope3.total_tCO2e} tCO2e</span>
                 </div>
-              ))}
-              <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
-                <span className="text-xs font-semibold text-gray-700">Total</span>
-                <span className="text-sm font-bold text-green-600">{scope3.total_tCO2e} tCO2e</span>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-4">
+                <Lock size={24} className="mx-auto text-gray-300 mb-2" />
+                <p className="text-xs text-gray-400">Upgrade to Starter to unlock Scope 3</p>
+                <Link href="/settings">
+                  <Button variant="secondary" size="sm" className="mt-2">Upgrade</Button>
+                </Link>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -384,10 +422,10 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {[
                 { href: "/calculator", label: "Update Carbon Data", desc: "Enter latest energy & transport numbers", icon: Flame, badge: "E", locked: false },
-                { href: "/people", label: "Update Social Data", desc: "Update workforce & HR parameters", icon: Users, badge: "S", locked: false },
+                { href: "/people", label: "Update Social Data", desc: features.socialParams ? "Update workforce & HR parameters" : "Upgrade to Starter to unlock", icon: Users, badge: "S", locked: !features.socialParams },
                 { href: "/reports", label: "Generate Report", desc: "Export GRI or ESRS report as PDF", icon: FileText, badge: "R", locked: false },
-                { href: "/supply-chain", label: "Supply Chain Portal", desc: "Upgrade to Pro to unlock", icon: Globe, badge: "SC", locked: true },
-                { href: "/goals", label: "OKR & Goals", desc: "Upgrade to Pro to unlock", icon: TrendingDown, badge: "OK", locked: true },
+                { href: "/supply-chain", label: "Supply Chain Portal", desc: features.supplyChain ? "Manage supplier ESG data" : "Upgrade to Pro to unlock", icon: Globe, badge: "SC", locked: !features.supplyChain },
+                { href: "/goals", label: "OKR & Goals", desc: features.goals ? "Track ESG targets" : "Upgrade to Pro to unlock", icon: TrendingDown, badge: "OK", locked: !features.goals },
               ].map((action) => (
                 <Link
                   key={action.href}
