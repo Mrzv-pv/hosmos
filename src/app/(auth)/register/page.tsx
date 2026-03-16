@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Leaf, ArrowRight } from "lucide-react";
+import { Globe, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createClient } from "@/lib/supabase/client";
@@ -78,7 +78,7 @@ export default function RegisterPage() {
       <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-sm text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Leaf size={32} className="text-green-600" />
+            <CheckCircle2 size={32} className="text-green-600" />
           </div>
           <h1 className="text-2xl font-serif text-gray-900 mb-2">Check your email</h1>
           <p className="text-sm text-gray-500 mb-8">
@@ -99,8 +99,8 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
       <div className="w-full max-w-sm">
         <Link href="/" className="flex items-center gap-3 mb-10 justify-center">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-500 rounded-lg flex items-center justify-center">
-            <Leaf size={20} className="text-white" />
+          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
+            <Globe size={20} className="text-white" />
           </div>
           <span className="font-serif text-2xl">Hosmos</span>
         </Link>

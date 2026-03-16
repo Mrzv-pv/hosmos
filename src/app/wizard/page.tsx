@@ -10,7 +10,7 @@ import {
   CheckCircle,
   ArrowRight,
   ArrowLeft,
-  Leaf,
+  Globe,
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -100,8 +100,8 @@ export default function WizardPage() {
       {/* Header */}
       <header className="h-16 border-b border-gray-100 bg-white/80 backdrop-blur-lg flex items-center px-6">
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-lg flex items-center justify-center">
-            <Leaf size={18} className="text-white" />
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
+            <Globe size={18} className="text-white" />
           </div>
           <span className="font-serif text-xl">Hosmos</span>
         </Link>

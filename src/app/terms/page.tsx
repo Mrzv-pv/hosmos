@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf, ArrowLeft } from "lucide-react";
+import { Globe, ArrowLeft } from "lucide-react";
 
 export default function TermsOfServicePage() {
   return (
@@ -10,8 +10,8 @@ export default function TermsOfServicePage() {
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-lg flex items-center justify-center">
-              <Leaf size={18} className="text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
+              <Globe size={18} className="text-white" />
             </div>
             <span className="font-serif text-xl">Hosmos</span>
           </Link>
@@ -724,8 +724,8 @@ export default function TermsOfServicePage() {
       <footer className="py-12 px-6 border-t border-gray-100">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-violet-500 rounded-lg flex items-center justify-center">
-              <Leaf size={14} className="text-white" />
+            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
+              <Globe size={14} className="text-white" />
             </div>
             <span className="font-serif text-lg">Hosmos</span>
             <span className="text-xs text-gray-400 ml-2">by HelpH D.O.O.</span>

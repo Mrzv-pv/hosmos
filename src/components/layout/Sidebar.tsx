@@ -14,13 +14,13 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  Leaf,
   Database,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { usePlan } from "@/hooks/usePlan";
-import { Lock } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, feature: null },
@@ -76,8 +76,8 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-gray-100">
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-lg flex items-center justify-center flex-shrink-0">
-          <Leaf size={18} className="text-white" />
+        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center flex-shrink-0">
+          <Globe size={18} className="text-white" />
         </div>
         {!collapsed && (
           <span className="font-serif text-xl text-gray-900">Hosmos</span>
