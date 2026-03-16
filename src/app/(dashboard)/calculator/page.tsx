@@ -525,7 +525,7 @@ export default function CalculatorPage() {
           Loading emission factors...
         </div>
       )}
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
         {/* ─── Header Controls ──────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-4">

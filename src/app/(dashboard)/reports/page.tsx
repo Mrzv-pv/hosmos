@@ -203,7 +203,7 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen">
       <TopBar title="Reports" subtitle="Generate and export ESG reports" />
-      <div className="p-8 space-y-8">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
         {/* Report Templates */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Templates</h3>

@@ -42,7 +42,7 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex">
       {/* Left — Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-sm">
           <Link href="/" className="flex items-center gap-3 mb-10">
             <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden">

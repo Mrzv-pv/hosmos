@@ -108,7 +108,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen">
       <TopBar title="Settings" subtitle="Company profile, team, billing & integrations" />
-      <div className="p-8 space-y-6 max-w-3xl">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-3xl">
 
         {/* Trial Banner */}
         {plan === "trial" && (
@@ -147,7 +147,7 @@ export default function SettingsPage() {
               value={company.name}
               onChange={(e) => setCompany(prev => ({ ...prev, name: e.target.value }))}
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select
                 label="Industry"
                 options={["Manufacturing", "IT & Technology", "Retail", "Construction", "Transport", "Healthcare", "Financial Services", "Other"]}
@@ -161,7 +161,7 @@ export default function SettingsPage() {
                 onChange={(e) => setCompany(prev => ({ ...prev, country: e.target.value }))}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="NACE Code"
                 value={company.nace_code}
@@ -282,7 +282,7 @@ export default function SettingsPage() {
         {/* Plan Selection Modal */}
         {showPlanModal && (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowPlanModal(false)}>
-            <div className="bg-white rounded-2xl max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl max-w-3xl w-full p-4 md:p-8 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <h2 className="text-2xl font-serif text-gray-900 mb-2">Choose Your Plan</h2>
               <p className="text-sm text-gray-500 mb-6">Switch plans instantly. Your data is never deleted.</p>
 
@@ -355,7 +355,7 @@ export default function SettingsPage() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900">Language & Region</h3>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select
               label="Interface Language"
               options={[

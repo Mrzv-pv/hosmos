@@ -59,9 +59,9 @@ export default function PeoplePage() {
   return (
     <div className="min-h-screen">
       <TopBar title="People & Social" subtitle="40 social parameters — GRI 401-403" />
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Summary cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <Card padding="sm" className="text-center">
             <p className="text-xs text-gray-500 mb-1">Employees</p>
             <p className="text-2xl font-serif text-gray-900">120</p>
@@ -100,7 +100,7 @@ export default function PeoplePage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900">{group.category}</h3>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {group.fields.map((field) => (
                 <Input
                   key={field.label}

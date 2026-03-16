@@ -18,9 +18,9 @@ export default function SupplyChainPage() {
   return (
     <div className="min-h-screen">
       <TopBar title="Supply Chain Hub" subtitle="Supplier ESG questionnaires — Scope 3 Cat.1" />
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Summary */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <Card padding="sm" className="text-center">
             <p className="text-xs text-gray-500 mb-1">Total Suppliers</p>
             <p className="text-2xl font-serif text-gray-900">{suppliers.length}</p>

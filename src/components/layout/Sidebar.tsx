@@ -16,6 +16,8 @@ import {
   ChevronLeft,
   Database,
   Lock,
+  Menu,
+  X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -38,6 +40,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
   const [userInitials, setUserInitials] = useState("??");
@@ -60,6 +63,11 @@ export function Sidebar() {
     });
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -67,13 +75,8 @@ export function Sidebar() {
     router.refresh();
   };
 
-  return (
-    <aside
-      className={clsx(
-        "h-screen sticky top-0 flex flex-col bg-white border-r border-gray-100 transition-all duration-300",
-        collapsed ? "w-[72px]" : "w-[260px]"
-      )}
-    >
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-gray-100">
         <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -82,20 +85,28 @@ export function Sidebar() {
         {!collapsed && (
           <span className="font-serif text-xl text-gray-900">Hosmos</span>
         )}
+        {/* Close button on mobile, collapse on desktop */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => {
+            if (window.innerWidth < 768) setMobileOpen(false);
+            else setCollapsed(!collapsed);
+          }}
           className={clsx(
             "ml-auto p-1.5 rounded-lg hover:bg-gray-100 transition-all",
             collapsed && "ml-0"
           )}
         >
-          <ChevronLeft
-            size={16}
-            className={clsx(
-              "text-gray-400 transition-transform duration-300",
-              collapsed && "rotate-180"
-            )}
-          />
+          {mobileOpen && window.innerWidth < 768 ? (
+            <X size={16} className="text-gray-400" />
+          ) : (
+            <ChevronLeft
+              size={16}
+              className={clsx(
+                "text-gray-400 transition-transform duration-300",
+                collapsed && "rotate-180"
+              )}
+            />
+          )}
         </button>
       </div>
 
@@ -143,11 +154,7 @@ export function Sidebar() {
 
       {/* User section */}
       <div className="px-3 py-4 border-t border-gray-100">
-        <div
-          className={clsx(
-            "flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-all",
-          )}
-        >
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-all">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-violet-400 rounded-full flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-semibold">{userInitials}</span>
           </div>
@@ -164,6 +171,46 @@ export function Sidebar() {
           )}
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button - visible only on mobile */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-xl bg-white shadow-md border border-gray-200"
+      >
+        <Menu size={20} className="text-gray-600" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar drawer */}
+      <aside
+        className={clsx(
+          "md:hidden fixed top-0 left-0 h-screen w-[260px] bg-white z-50 flex flex-col border-r border-gray-100 transition-transform duration-300",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={clsx(
+          "hidden md:flex h-screen sticky top-0 flex-col bg-white border-r border-gray-100 transition-all duration-300",
+          collapsed ? "w-[72px]" : "w-[260px]"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

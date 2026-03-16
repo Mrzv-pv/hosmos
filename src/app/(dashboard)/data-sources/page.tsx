@@ -200,7 +200,7 @@ export default function DataSourcesPage() {
         </div>
       </div>
 
-      <div className="p-8 max-w-6xl">
+      <div className="p-4 md:p-6 lg:p-8 max-w-6xl">
         {/* Search bar */}
         <div className="flex items-center gap-3 mb-6">
           <div className="flex-1 relative">

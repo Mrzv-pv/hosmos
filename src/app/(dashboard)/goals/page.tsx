@@ -53,7 +53,7 @@ export default function GoalsPage() {
   return (
     <div className="min-h-screen">
       <TopBar title="Goals & OKR" subtitle="SBTi-aligned reduction targets" />
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Net-zero timeline */}
         <Card className="bg-gradient-to-br from-blue-50 to-violet-50 border-0">
           <div className="flex items-center gap-4">

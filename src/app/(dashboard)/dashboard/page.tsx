@@ -155,15 +155,15 @@ export default function DashboardPage() {
         subtitle={`${d.company.name} · ${d.company.country} · ${d.reportingYear}`}
       />
 
-      <div className="p-8 space-y-8">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
         {/* Trial Banner */}
         {plan === "trial" && (
           <div className="bg-gradient-to-r from-blue-500 to-violet-500 rounded-2xl p-5 text-white">
-            <div className="flex items-center gap-4">
-              <Crown size={28} className="opacity-80" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+              <Crown size={28} className="opacity-80 hidden sm:block" />
               <div className="flex-1">
-                <h3 className="font-semibold">Free Trial — Limited Features</h3>
-                <p className="text-sm opacity-80 mt-0.5">
+                <h3 className="font-semibold text-sm sm:text-base">Free Trial — Limited Features</h3>
+                <p className="text-xs sm:text-sm opacity-80 mt-0.5">
                   Scope 3, People, Governance and ESRS reports are locked. Upgrade to unlock.
                 </p>
               </div>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-5">
           <KPICard
             title="Scope 1"
             value={d.scope1.toFixed(1)}
@@ -256,7 +256,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Emissions Chart */}
           <Card className="lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
@@ -322,7 +322,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Scope Breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Scope 1 Detail */}
           <Card>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Scope 1 Breakdown</h3>
@@ -391,7 +391,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* Recent Activity */}
           <Card>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
