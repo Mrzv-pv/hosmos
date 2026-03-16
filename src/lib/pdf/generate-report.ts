@@ -37,6 +37,22 @@ function pct(value: number, total: number): string {
   return ((value / total) * 100).toFixed(1) + '%'
 }
 
+// ── Helper: draw gradient header (blue → violet) ──
+function drawGradientHeader(doc: jsPDF, height: number) {
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const steps = 40
+  const stepWidth = pageWidth / steps
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1)
+    // blue-500 (59,130,246) → violet-600 (124,58,237)
+    const r = Math.round(59 + (124 - 59) * t)
+    const g = Math.round(130 + (58 - 130) * t)
+    const b = Math.round(246 + (237 - 246) * t)
+    doc.setFillColor(r, g, b)
+    doc.rect(i * stepWidth, 0, stepWidth + 0.5, height, 'F')
+  }
+}
+
 // ── Helper: add footer to all pages ──
 function addFooters(doc: jsPDF, label: string) {
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -60,12 +76,10 @@ function addFooters(doc: jsPDF, label: string) {
 
 export function generateGRIReport(data: ReportData): jsPDF {
   const doc = new jsPDF()
-  const pageWidth = doc.internal.pageSize.getWidth()
   let y = 20
 
-  // ── Header ──
-  doc.setFillColor(59, 130, 246) // blue-500
-  doc.rect(0, 0, pageWidth, 40, 'F')
+  // ── Header (blue → violet gradient) ──
+  drawGradientHeader(doc, 40)
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
@@ -97,7 +111,7 @@ export function generateGRIReport(data: ReportData): jsPDF {
       ['GRI 2-5', 'External assurance', 'Not yet obtained'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [59, 130, 246] },
+    headStyles: { fillColor: [91, 94, 234] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 }, 1: { cellWidth: 55 } },
@@ -125,7 +139,7 @@ export function generateGRIReport(data: ReportData): jsPDF {
       ['GRI 305-1/2/3', 'Total GHG emissions', data.total.toFixed(2), '100%'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [59, 130, 246] },
+    headStyles: { fillColor: [91, 94, 234] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 30 } },
@@ -156,7 +170,7 @@ export function generateGRIReport(data: ReportData): jsPDF {
       ['Grid country', data.gridCountry, '—'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [59, 130, 246] },
+    headStyles: { fillColor: [91, 94, 234] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
   })
@@ -181,7 +195,7 @@ export function generateGRIReport(data: ReportData): jsPDF {
       m.total.toFixed(2),
     ]),
     theme: 'striped',
-    headStyles: { fillColor: [59, 130, 246] },
+    headStyles: { fillColor: [91, 94, 234] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     foot: [['Annual Total',
@@ -245,7 +259,7 @@ export function generateGRIReport(data: ReportData): jsPDF {
       ['GRI 305: Emissions 2016', '305-4 GHG emissions intensity', 'Page 1'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [59, 130, 246] },
+    headStyles: { fillColor: [91, 94, 234] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 7 },
     columnStyles: { 0: { cellWidth: 55 } },
@@ -264,9 +278,8 @@ export function generateESRSReport(data: ReportData): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 20
 
-  // ── Header — green accent for ESRS ──
-  doc.setFillColor(5, 150, 105) // emerald-600
-  doc.rect(0, 0, pageWidth, 44, 'F')
+  // ── Header (blue → violet gradient) ──
+  drawGradientHeader(doc, 44)
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
@@ -322,7 +335,7 @@ export function generateESRSReport(data: ReportData): jsPDF {
       ['Supply chain engagement', `${data.scope3.toFixed(1)} tCO2e Scope 3`, '2030', '-25%', 'Assessment'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [109, 72, 217] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
   })
@@ -354,7 +367,7 @@ export function generateESRSReport(data: ReportData): jsPDF {
       ['E1-6 §50', 'Total GHG (market-based)', totalMarket.toFixed(2), '—'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [109, 72, 217] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
@@ -387,7 +400,7 @@ export function generateESRSReport(data: ReportData): jsPDF {
       ['', 'Total FTE headcount', String(data.headcount), 'employees'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [109, 72, 217] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
@@ -413,7 +426,7 @@ export function generateESRSReport(data: ReportData): jsPDF {
       m.total.toFixed(2),
     ]),
     theme: 'striped',
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [109, 72, 217] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     foot: [['Annual Total',
@@ -482,14 +495,14 @@ export function generateESRSReport(data: ReportData): jsPDF {
       ['E1-9', 'Anticipated financial effects from climate change', 'Planned', '—'],
     ],
     theme: 'striped',
-    headStyles: { fillColor: [5, 150, 105] },
+    headStyles: { fillColor: [109, 72, 217] },
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 18 }, 2: { cellWidth: 28 } },
     didParseCell: (hookData) => {
       if (hookData.section === 'body' && hookData.column.index === 2) {
         const val = hookData.cell.raw as string
-        if (val === 'Reported') hookData.cell.styles.textColor = [5, 150, 105]
+        if (val === 'Reported') hookData.cell.styles.textColor = [109, 72, 217]
         else if (val === 'Partial') hookData.cell.styles.textColor = [217, 119, 6]
         else if (val === 'Planned') hookData.cell.styles.textColor = [107, 114, 128]
         else hookData.cell.styles.textColor = [156, 163, 175]
