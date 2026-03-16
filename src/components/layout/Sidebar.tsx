@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import {
   LayoutDashboard,
@@ -17,7 +17,8 @@ import {
   Leaf,
   Database,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,7 +34,35 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userInitials, setUserInitials] = useState("??");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserEmail(user.email || "");
+        const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "";
+        setUserName(name);
+        const parts = name.split(" ");
+        setUserInitials(
+          parts.length >= 2
+            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+            : name.substring(0, 2).toUpperCase()
+        );
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <aside
@@ -117,15 +146,17 @@ export function Sidebar() {
           )}
         >
           <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-violet-400 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-semibold">JD</span>
+            <span className="text-white text-xs font-semibold">{userInitials}</span>
           </div>
           {!collapsed && (
             <>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">John Doe</p>
-                <p className="text-xs text-gray-400 truncate">john@company.com</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{userName || "User"}</p>
+                <p className="text-xs text-gray-400 truncate">{userEmail}</p>
               </div>
-              <LogOut size={16} className="text-gray-400" />
+              <button onClick={handleLogout} title="Log out">
+                <LogOut size={16} className="text-gray-400 hover:text-red-500 transition-colors" />
+              </button>
             </>
           )}
         </div>

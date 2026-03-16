@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Leaf, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -12,14 +13,80 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [company, setCompany] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      window.location.href = "/wizard";
-    }, 1000);
+    setError("");
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+
+    // 1. Sign up
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
+    });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Create company and link to profile
+    if (data.user && company) {
+      const { data: companyData, error: companyError } = await supabase
+        .from("companies")
+        .insert({ name: company })
+        .select()
+        .single();
+
+      if (!companyError && companyData) {
+        await supabase
+          .from("profiles")
+          .update({ company_id: companyData.id, full_name: name })
+          .eq("id", data.user.id);
+      }
+    }
+
+    setSuccess(true);
+    setLoading(false);
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Leaf size={32} className="text-green-600" />
+          </div>
+          <h1 className="text-2xl font-serif text-gray-900 mb-2">Check your email</h1>
+          <p className="text-sm text-gray-500 mb-8">
+            We sent a confirmation link to <strong>{email}</strong>.
+            Click it to activate your account.
+          </p>
+          <Link href="/login">
+            <Button className="w-full">
+              Back to Login <ArrowRight size={16} className="ml-2" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
@@ -34,6 +101,12 @@ export default function RegisterPage() {
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
           <h1 className="text-2xl font-serif text-gray-900 mb-2 text-center">Start your free trial</h1>
           <p className="text-sm text-gray-500 mb-8 text-center">30 days free. No credit card required.</p>
+
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleRegister} className="space-y-4">
             <Input label="Full Name" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} />
