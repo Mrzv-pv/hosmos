@@ -3,9 +3,10 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Globe, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PlanetIcon } from "@/components/ui/PlanetIcon";
 import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
@@ -44,8 +45,8 @@ function LoginForm() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <Link href="/" className="flex items-center gap-3 mb-10">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-500 rounded-full flex items-center justify-center">
-              <Globe size={20} className="text-white" />
+            <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden">
+              <PlanetIcon size={32} />
             </div>
             <span className="font-serif text-2xl">Hosmos</span>
           </Link>
