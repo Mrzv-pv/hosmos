@@ -234,7 +234,7 @@ export async function saveEmissionResults(
     scope2_location: number
     scope2_market: number
     scope3_total: number
-    total: number
+    total_tco2e: number
     per_employee: number | null
   }
 ) {

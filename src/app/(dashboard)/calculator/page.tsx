@@ -337,7 +337,7 @@ export default function CalculatorPage() {
         scope2_location: Math.round(totals.scope2 * 100) / 100,
         scope2_market: Math.round(totals.scope2Market * 100) / 100,
         scope3_total: Math.round(totals.scope3 * 100) / 100,
-        total: Math.round(totals.total * 100) / 100,
+        total_tco2e: Math.round(totals.total * 100) / 100,
         per_employee: headcount > 0 ? Math.round((totals.total / headcount) * 100) / 100 : null,
       });
       setSaved(true);
