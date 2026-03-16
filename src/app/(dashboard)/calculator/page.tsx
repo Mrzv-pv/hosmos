@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
@@ -9,6 +9,25 @@ import { Badge } from "@/components/ui/Badge";
 import { COUNTRIES } from "@/lib/constants";
 import { EMISSION_FACTORS } from "@/lib/constants";
 import { getGridFactor, GRID_FACTORS } from "@/data/emission-factors";
+import {
+  getStationaryFuelFactors,
+  getVehicleFactors,
+  getGridFactors,
+  getHeatFactors,
+  getScope3Factors,
+  getFlightFactors,
+  getCurrentCompany,
+  getMonthlyEmissions,
+  saveMonthlyEmission,
+  saveEmissionResults,
+  type DbStationaryFuelFactor,
+  type DbVehicleFactor,
+  type DbGridFactor,
+  type DbHeatFactor,
+  type DbScope3Factor,
+  type DbFlightFactor,
+  type DbCompany,
+} from "@/lib/supabase/queries";
 import {
   Flame,
   Zap,
@@ -110,6 +129,65 @@ function createDemoMonth(m: number): MonthlyRow {
   };
 }
 
+// ─── DB Factor Lookup Map ────────────────────────────────────────────────────
+interface CalculatorFactors {
+  // Stationary combustion (kgCO2e per unit)
+  naturalGas_m3: number;
+  diesel_L: number;
+  petrol_L: number;
+  lpg_L: number;
+  fuelOil_L: number;
+  // Vehicles (kgCO2e per km)
+  fleetDiesel_km: number;
+  fleetPetrol_km: number;
+  fleetEV_km: number;
+  // Heat/steam/cooling (kgCO2e per kWh)
+  districtHeating_kWh: number;
+  steam_kWh: number;
+  cooling_kWh: number;
+  // Scope 3 (kgCO2e per unit)
+  shortFlight_pkm: number;
+  longFlight_pkm: number;
+  commuteCar_km: number;
+  commuteBus_km: number;
+  commuteTrain_km: number;
+}
+
+/** Build a flat CalculatorFactors map from DB rows, with static fallbacks */
+function buildFactorMap(
+  fuels: DbStationaryFuelFactor[],
+  vehicles: DbVehicleFactor[],
+  flights: DbFlightFactor[],
+  heat: DbHeatFactor[],
+  scope3: DbScope3Factor[],
+): CalculatorFactors {
+  // Helper: find row by factor_id, return factor value
+  const fuelVal = (id: string) => fuels.find(f => f.factor_id === id)?.factor_kg_co2e;
+  const vehVal = (id: string) => vehicles.find(f => f.factor_id === id)?.factor_kg_co2e;
+  const flightVal = (id: string) => flights.find(f => f.factor_id === id)?.with_rf_kg_co2e;
+  const heatVal = (id: string) => heat.find(f => f.factor_id === id)?.factor_kg_co2e;
+  const s3Val = (id: string) => scope3.find(f => f.factor_id === id)?.factor_kg_co2e;
+
+  return {
+    naturalGas_m3:       fuelVal('natural_gas_m3')       ?? EMISSION_FACTORS.naturalGas,
+    diesel_L:            fuelVal('diesel_biofuel_litre')  ?? EMISSION_FACTORS.diesel,
+    petrol_L:            fuelVal('petrol_biofuel_litre')  ?? EMISSION_FACTORS.petrol,
+    lpg_L:               fuelVal('lpg_litre')             ?? EMISSION_FACTORS.lpg,
+    fuelOil_L:           fuelVal('fuel_oil_litre')        ?? 2.96,
+    fleetDiesel_km:      vehVal('car_diesel_avg')         ?? EMISSION_FACTORS.vehicles.car_diesel,
+    fleetPetrol_km:      vehVal('car_petrol_avg')         ?? EMISSION_FACTORS.vehicles.car_petrol,
+    fleetEV_km:          vehVal('car_bev_avg')            ?? EMISSION_FACTORS.vehicles.car_bev,
+    districtHeating_kWh: heatVal('heat_defra_default')    ?? 0.198,
+    steam_kWh:           heatVal('steam_defra')           ?? 0.17679,
+    cooling_kWh:         heatVal('cooling_defra')         ?? 0.145,
+    shortFlight_pkm:     flightVal('flight_shorthaul_avg') ?? 0.18592,
+    longFlight_pkm:      flightVal('flight_longhaul_avg')  ?? 0.26128,
+    commuteCar_km:       s3Val('s3_c7_car_avg')           ?? 0.16725,
+    commuteBus_km:       s3Val('s3_c7_bus')               ?? 0.10312,
+    commuteTrain_km:     s3Val('s3_c7_rail_national') ?? s3Val('s3_c7_rail') ?? 0.03549,
+  };
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 export default function CalculatorPage() {
   const [country, setCountry] = useState("Slovenia");
@@ -120,10 +198,85 @@ export default function CalculatorPage() {
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const [expandedScope, setExpandedScope] = useState<string | null>("scope1");
 
+  // ─── DB-loaded emission factors ──────────────────────────────────────────
+  const [dbFactors, setDbFactors] = useState<CalculatorFactors | null>(null);
+  const [dbGridFactors, setDbGridFactors] = useState<DbGridFactor[]>([]);
+  const [factorsLoading, setFactorsLoading] = useState(true);
+  const [company, setCompany] = useState<DbCompany | null>(null);
+  const [saving, setSaving] = useState(false);
+
   // Monthly data - 12 rows
   const [monthlyData, setMonthlyData] = useState<MonthlyRow[]>(
     () => Array.from({ length: 12 }, (_, i) => createDemoMonth(i))
   );
+
+  // ─── Load emission factors + company data from Supabase ────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const yearNum = parseInt(year);
+        const [fuels, vehicles, flights, grid, heat, scope3, comp] = await Promise.all([
+          getStationaryFuelFactors(yearNum),
+          getVehicleFactors(yearNum),
+          getFlightFactors(yearNum),
+          getGridFactors(yearNum),
+          getHeatFactors(yearNum),
+          getScope3Factors(yearNum),
+          getCurrentCompany(),
+        ]);
+        if (cancelled) return;
+
+        setDbFactors(buildFactorMap(fuels, vehicles, flights, heat, scope3));
+        setDbGridFactors(grid);
+
+        if (comp) {
+          setCompany(comp);
+          if (comp.headcount) setHeadcount(comp.headcount);
+          // Load existing monthly data for this company/year
+          try {
+            const rows = await getMonthlyEmissions(comp.id, yearNum);
+            if (!cancelled && rows.length > 0) {
+              const loaded: MonthlyRow[] = Array.from({ length: 12 }, (_, i) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const row = rows.find((r: any) => r.month === i + 1);
+                if (!row) return createDemoMonth(i);
+                return {
+                  naturalGas_m3: Number(row.natural_gas_m3) || 0,
+                  diesel_L: Number(row.diesel_litres) || 0,
+                  petrol_L: Number(row.petrol_litres) || 0,
+                  lpg_L: Number(row.lpg_litres) || 0,
+                  fuelOil_L: Number(row.fuel_oil_litres) || 0,
+                  fleetDiesel_km: Number(row.fleet_diesel_km) || 0,
+                  fleetPetrol_km: Number(row.fleet_petrol_km) || 0,
+                  fleetEV_km: Number(row.fleet_ev_km) || 0,
+                  electricity_kWh: Number(row.electricity_kwh) || 0,
+                  districtHeating_kWh: Number(row.district_heating_kwh) || 0,
+                  steam_kg: Number(row.steam_kg) || 0,
+                  cooling_kWh: Number(row.cooling_kwh) || 0,
+                  shortFlights_pkm: Number(row.short_flights_pkm) || 0,
+                  longFlights_pkm: Number(row.long_flights_pkm) || 0,
+                  commuteCar_km: Number(row.commute_car_km) || 0,
+                  commuteBus_km: Number(row.commute_bus_km) || 0,
+                  commuteTrain_km: Number(row.commute_train_km) || 0,
+                };
+              });
+              setMonthlyData(loaded);
+            }
+          } catch {
+            // Monthly data not available - keep demo data
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load emission factors from DB, using static fallback:", err);
+      } finally {
+        if (!cancelled) setFactorsLoading(false);
+      }
+    }
+    setFactorsLoading(true);
+    load();
+    return () => { cancelled = true; };
+  }, [year]);
 
   const updateMonth = (monthIdx: number, field: keyof MonthlyRow, value: number) => {
     setMonthlyData(prev => {
@@ -134,27 +287,134 @@ export default function CalculatorPage() {
     setSaved(false);
   };
 
-  // Calculate grid factors
+  // ─── Save to Supabase ────────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    if (!company) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
+    setSaving(true);
+    try {
+      const yearNum = parseInt(year);
+      // Save each month's data
+      await Promise.all(
+        monthlyData.map((m, i) =>
+          saveMonthlyEmission(company.id, yearNum, i + 1, {
+            natural_gas_m3: m.naturalGas_m3,
+            diesel_litres: m.diesel_L,
+            petrol_litres: m.petrol_L,
+            lpg_litres: m.lpg_L,
+            fuel_oil_litres: m.fuelOil_L,
+            fleet_diesel_km: m.fleetDiesel_km,
+            fleet_petrol_km: m.fleetPetrol_km,
+            fleet_ev_km: m.fleetEV_km,
+            electricity_kwh: m.electricity_kWh,
+            district_heating_kwh: m.districtHeating_kWh,
+            steam_kg: m.steam_kg,
+            cooling_kwh: m.cooling_kWh,
+            short_flights_pkm: m.shortFlights_pkm,
+            long_flights_pkm: m.longFlights_pkm,
+            commute_car_km: m.commuteCar_km,
+            commute_bus_km: m.commuteBus_km,
+            commute_train_km: m.commuteTrain_km,
+          })
+        )
+      );
+      // Save annual results
+      const totals = monthlyResults.reduce(
+        (acc, r) => ({
+          scope1: acc.scope1 + r.scope1,
+          scope2: acc.scope2 + r.scope2,
+          scope2Market: acc.scope2Market + r.scope2Market,
+          scope3: acc.scope3 + r.scope3,
+          total: acc.total + r.total,
+        }),
+        { scope1: 0, scope2: 0, scope2Market: 0, scope3: 0, total: 0 }
+      );
+      await saveEmissionResults(company.id, yearNum, {
+        scope1_total: Math.round(totals.scope1 * 100) / 100,
+        scope2_location: Math.round(totals.scope2 * 100) / 100,
+        scope2_market: Math.round(totals.scope2Market * 100) / 100,
+        scope3_total: Math.round(totals.scope3 * 100) / 100,
+        total: Math.round(totals.total * 100) / 100,
+        per_employee: headcount > 0 ? Math.round((totals.total / headcount) * 100) / 100 : null,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save:", err);
+      alert("Failed to save data. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company, year, monthlyData, headcount]);
+
+  // Calculate grid factors - prefer DB, fallback to static
   const countryEntry = GRID_FACTORS.find(c => c.name.toLowerCase() === country.toLowerCase());
   const countryCode = countryEntry?.code ?? "SI";
-  const gridLocation = getGridFactor(countryCode, year, "location");
-  const gridMarket = getGridFactor(countryCode, year, "market");
+
+  const { gridLocation, gridMarket } = useMemo(() => {
+    // Try DB grid factors first
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbGrid = dbGridFactors.find((g: any) => g.country_code === countryCode);
+    if (dbGrid) {
+      // DB stores kgCO2e/kWh (same unit as getGridFactor returns)
+      // Handle both possible column name shapes from Supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = dbGrid as any;
+      return {
+        gridLocation: Number(dbGrid.location_based_kg_co2e ?? raw.location_kwh ?? 0),
+        gridMarket: Number(dbGrid.residual_mix_kg_co2e ?? raw.market_kwh ?? 0),
+      };
+    }
+    // Fallback to static (returns kgCO2e/kWh)
+    return {
+      gridLocation: getGridFactor(countryCode, year, "location"),
+      gridMarket: getGridFactor(countryCode, year, "market"),
+    };
+  }, [dbGridFactors, countryCode, year]);
+
+  // ─── Resolved emission factors (DB or static fallback) ─────────────
+  const EF: CalculatorFactors = useMemo(() => {
+    if (dbFactors) return dbFactors;
+    // Static fallback
+    return {
+      naturalGas_m3: EMISSION_FACTORS.naturalGas,
+      diesel_L: EMISSION_FACTORS.diesel,
+      petrol_L: EMISSION_FACTORS.petrol,
+      lpg_L: EMISSION_FACTORS.lpg,
+      fuelOil_L: 2.96,
+      fleetDiesel_km: EMISSION_FACTORS.vehicles.car_diesel,
+      fleetPetrol_km: EMISSION_FACTORS.vehicles.car_petrol,
+      fleetEV_km: EMISSION_FACTORS.vehicles.car_bev,
+      districtHeating_kWh: 0.198,
+      steam_kWh: 0.17679,
+      cooling_kWh: 0.145,
+      shortFlight_pkm: 0.18592,
+      longFlight_pkm: 0.26128,
+      commuteCar_km: 0.16725,
+      commuteBus_km: 0.10312,
+      commuteTrain_km: 0.03549,
+    };
+  }, [dbFactors]);
 
   // ─── Calculate emissions per month ──────────────────────────────────
   const monthlyResults: MonthlyResult[] = useMemo(() => {
     const r = (v: number) => Math.round(v * 100) / 100;
     return monthlyData.map(m => {
       // Scope 1 - Stationary combustion
-      const s1_gas = (m.naturalGas_m3 * EMISSION_FACTORS.naturalGas) / 1000;
-      const s1_diesel = (m.diesel_L * EMISSION_FACTORS.diesel) / 1000;
-      const s1_petrol = (m.petrol_L * EMISSION_FACTORS.petrol) / 1000;
-      const s1_lpg = (m.lpg_L * EMISSION_FACTORS.lpg) / 1000;
-      const s1_fuelOil = (m.fuelOil_L * 2.96) / 1000;
+      const s1_gas = (m.naturalGas_m3 * EF.naturalGas_m3) / 1000;
+      const s1_diesel = (m.diesel_L * EF.diesel_L) / 1000;
+      const s1_petrol = (m.petrol_L * EF.petrol_L) / 1000;
+      const s1_lpg = (m.lpg_L * EF.lpg_L) / 1000;
+      const s1_fuelOil = (m.fuelOil_L * EF.fuelOil_L) / 1000;
       const s1_stationary = s1_gas + s1_diesel + s1_petrol + s1_lpg + s1_fuelOil;
 
       // Scope 1 - Fleet
-      const s1_fleetD = (m.fleetDiesel_km * EMISSION_FACTORS.vehicles.car_diesel) / 1000;
-      const s1_fleetP = (m.fleetPetrol_km * EMISSION_FACTORS.vehicles.car_petrol) / 1000;
+      const s1_fleetD = (m.fleetDiesel_km * EF.fleetDiesel_km) / 1000;
+      const s1_fleetP = (m.fleetPetrol_km * EF.fleetPetrol_km) / 1000;
       const s1_fleet = s1_fleetD + s1_fleetP;
 
       const scope1 = s1_stationary + s1_fleet;
@@ -162,19 +422,19 @@ export default function CalculatorPage() {
       // Scope 2
       const s2_elecLoc = (m.electricity_kWh * gridLocation) / 1000;
       const s2_elecMkt = (m.electricity_kWh * gridMarket) / 1000;
-      const s2_heating = (m.districtHeating_kWh * 0.198) / 1000; // DEFRA default
-      const s2_steam = (m.steam_kg * 0.17679) / 1000;
-      const s2_cooling = (m.cooling_kWh * 0.145) / 1000;
+      const s2_heating = (m.districtHeating_kWh * EF.districtHeating_kWh) / 1000;
+      const s2_steam = (m.steam_kg * EF.steam_kWh) / 1000;
+      const s2_cooling = (m.cooling_kWh * EF.cooling_kWh) / 1000;
 
       const scope2 = s2_elecLoc + s2_heating + s2_steam + s2_cooling;
       const scope2Market = s2_elecMkt + s2_heating + s2_steam + s2_cooling;
 
       // Scope 3 basic
-      const s3_shortFlight = (m.shortFlights_pkm * 0.18592) / 1000;
-      const s3_longFlight = (m.longFlights_pkm * 0.26128) / 1000;
-      const s3_car = (m.commuteCar_km * 0.16725) / 1000;
-      const s3_bus = (m.commuteBus_km * 0.10312) / 1000;
-      const s3_train = (m.commuteTrain_km * 0.03549) / 1000;
+      const s3_shortFlight = (m.shortFlights_pkm * EF.shortFlight_pkm) / 1000;
+      const s3_longFlight = (m.longFlights_pkm * EF.longFlight_pkm) / 1000;
+      const s3_car = (m.commuteCar_km * EF.commuteCar_km) / 1000;
+      const s3_bus = (m.commuteBus_km * EF.commuteBus_km) / 1000;
+      const s3_train = (m.commuteTrain_km * EF.commuteTrain_km) / 1000;
 
       const s3_flights = s3_shortFlight + s3_longFlight;
       const s3_commute = s3_car + s3_bus + s3_train;
@@ -197,7 +457,7 @@ export default function CalculatorPage() {
         s3_commute: r(s3_commute),
       };
     });
-  }, [monthlyData, gridLocation, gridMarket]);
+  }, [monthlyData, gridLocation, gridMarket, EF]);
 
   // Annual totals
   const annualTotals = useMemo(() => {
@@ -259,6 +519,12 @@ export default function CalculatorPage() {
         title="Carbon Calculator"
         subtitle="Monthly data entry · Scope 1 + 2 + 3 · DEFRA/DESNZ + AIB + EEA factors"
       />
+      {factorsLoading && (
+        <div className="flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 text-sm">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+          Loading emission factors...
+        </div>
+      )}
       <div className="p-8 space-y-6">
 
         {/* ─── Header Controls ──────────────────────────────────────────── */}
@@ -319,8 +585,8 @@ export default function CalculatorPage() {
               </button>
             </div>
 
-            <Button variant="secondary" onClick={() => setSaved(true)}>
-              <Save size={16} className="mr-1.5" /> {saved ? "Saved!" : "Save"}
+            <Button variant="secondary" onClick={handleSave} disabled={saving}>
+              <Save size={16} className="mr-1.5" /> {saving ? "Saving..." : saved ? "Saved!" : "Save"}
             </Button>
           </div>
         </div>

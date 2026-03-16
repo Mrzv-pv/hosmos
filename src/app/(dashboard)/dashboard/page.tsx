@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { KPICard } from "@/components/ui/KPICard";
 import { Card } from "@/components/ui/Card";
@@ -15,11 +16,11 @@ import {
   ArrowRight,
   Globe,
   Lock,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { DEMO_DASHBOARD, DEMO_SCOPE1, DEMO_SCOPE2, DEMO_SCOPE3 } from "@/data/seed-company";
-
-const d = DEMO_DASHBOARD;
+import { createClient } from "@/lib/supabase/client";
 
 // Monthly breakdown (pro-rata from annual totals)
 const monthlyEmissions = [
@@ -46,10 +47,102 @@ const recentActivity = [
 ];
 
 export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [dashboard, setDashboard] = useState(DEMO_DASHBOARD);
+  const [scope1, setScope1] = useState(DEMO_SCOPE1);
+  const [scope2, setScope2] = useState(DEMO_SCOPE2);
+  const [scope3, setScope3] = useState(DEMO_SCOPE3);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoading(false); return; }
+
+        // Get profile → company
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('company_id, full_name')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.company_id) {
+          const { data: comp } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', profile.company_id)
+            .single();
+
+          if (comp) {
+            setDashboard(prev => ({
+              ...prev,
+              company: {
+                id: comp.id,
+                name: comp.name,
+                industry: comp.industry || '',
+                naceCode: comp.nace_code || '',
+                country: comp.country || '',
+                countryCode: comp.country_code || '',
+                headcount: comp.headcount || 0,
+                plan: (comp.plan || 'starter') as "trial" | "starter" | "pro" | "enterprise",
+                planStartDate: '',
+                reportingYear: comp.reporting_year || '2024',
+                currency: comp.currency || 'EUR',
+              },
+              reportingYear: comp.reporting_year || prev.reportingYear,
+            }));
+
+            // Try to get emission results
+            const { data: results } = await supabase
+              .from('emission_results')
+              .select('*')
+              .eq('company_id', comp.id)
+              .eq('year', parseInt(comp.reporting_year || '2024'))
+              .single();
+
+            if (results) {
+              setScope1({ stationaryCombustion_tCO2e: 0, mobileFleet_tCO2e: 0, total_tCO2e: results.scope1_total || 0 });
+              setScope2({ locationBased_tCO2e: results.scope2_location || 0, marketBased_tCO2e: results.scope2_market || 0, total_tCO2e: results.scope2_location || 0 });
+              setScope3({ categories: [], total_tCO2e: results.scope3_total || 0 });
+
+              const total = results.total || 0;
+              setDashboard(prev => ({
+                ...prev,
+                scope1: results.scope1_total || prev.scope1,
+                scope2: results.scope2_location || prev.scope2,
+                scope3: results.scope3_total || prev.scope3,
+                totalEmissions: total || prev.totalEmissions,
+                emissionsPerEmployee: comp.headcount ? +(total / comp.headcount).toFixed(2) : prev.emissionsPerEmployee,
+              }));
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Dashboard load error:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const d = dashboard;
   const maxEmission = Math.max(...monthlyEmissions.map((m) => m.scope1 + m.scope2));
 
   const scope1Change = Math.round(((d.scope1 - d.previousYear.scope1) / d.previousYear.scope1) * 100);
   const scope2Change = Math.round(((d.scope2 - d.previousYear.scope2) / d.previousYear.scope2) * 100);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <TopBar title="Dashboard" subtitle="Loading..." />
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -210,15 +303,15 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500">Stationary combustion</span>
-                <span className="text-sm font-medium text-gray-900">{DEMO_SCOPE1.stationaryCombustion_tCO2e} t</span>
+                <span className="text-sm font-medium text-gray-900">{scope1.stationaryCombustion_tCO2e} t</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500">Fleet vehicles</span>
-                <span className="text-sm font-medium text-gray-900">{DEMO_SCOPE1.mobileFleet_tCO2e} t</span>
+                <span className="text-sm font-medium text-gray-900">{scope1.mobileFleet_tCO2e} t</span>
               </div>
               <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
                 <span className="text-xs font-semibold text-gray-700">Total</span>
-                <span className="text-sm font-bold text-blue-600">{DEMO_SCOPE1.total_tCO2e} tCO2e</span>
+                <span className="text-sm font-bold text-blue-600">{scope1.total_tCO2e} tCO2e</span>
               </div>
             </div>
           </Card>
@@ -229,11 +322,11 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500">Location-based</span>
-                <span className="text-sm font-medium text-gray-900">{DEMO_SCOPE2.locationBased_tCO2e} t</span>
+                <span className="text-sm font-medium text-gray-900">{scope2.locationBased_tCO2e} t</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500">Market-based (residual mix)</span>
-                <span className="text-sm font-medium text-gray-900">{DEMO_SCOPE2.marketBased_tCO2e} t</span>
+                <span className="text-sm font-medium text-gray-900">{scope2.marketBased_tCO2e} t</span>
               </div>
               <div className="border-t border-gray-100 pt-2">
                 <p className="text-[10px] text-gray-400">Grid: Slovenia {d.reportingYear} · 212 gCO2/kWh (loc) · 429 gCO2/kWh (mkt)</p>
@@ -245,7 +338,7 @@ export default function DashboardPage() {
           <Card>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Scope 3 (Starter)</h3>
             <div className="space-y-2">
-              {DEMO_SCOPE3.categories.map((cat) => (
+              {scope3.categories.map((cat) => (
                 <div key={cat.id} className="flex justify-between items-center">
                   <span className="text-xs text-gray-500">Cat. {cat.id}: {cat.name}</span>
                   <span className="text-sm font-medium text-gray-900">{cat.tCO2e} t</span>
@@ -253,7 +346,7 @@ export default function DashboardPage() {
               ))}
               <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
                 <span className="text-xs font-semibold text-gray-700">Total</span>
-                <span className="text-sm font-bold text-green-600">{DEMO_SCOPE3.total_tCO2e} tCO2e</span>
+                <span className="text-sm font-bold text-green-600">{scope3.total_tCO2e} tCO2e</span>
               </div>
             </div>
           </Card>
