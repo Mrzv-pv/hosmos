@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Leaf, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +14,6 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
 
@@ -35,8 +34,8 @@ function LoginForm() {
       return;
     }
 
-    router.push(redirectTo);
-    router.refresh();
+    // Full page navigation so the server/middleware sees the new auth cookie
+    window.location.href = redirectTo;
   };
 
   return (
