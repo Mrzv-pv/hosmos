@@ -202,6 +202,10 @@ export default function CalculatorPage() {
   const [activeMonth, setActiveMonth] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const [expandedScope, setExpandedScope] = useState<string | null>("scope1");
+  const [gasUnit, setGasUnit] = useState<"m3" | "kWh">("m3");
+
+  // NCV conversion: 1 m³ natural gas ≈ 10.55 kWh (net calorific value)
+  const GAS_KWH_PER_M3 = 10.55;
 
   // ─── DB-loaded emission factors ──────────────────────────────────────────
   const [dbFactors, setDbFactors] = useState<CalculatorFactors | null>(null);
@@ -294,11 +298,35 @@ export default function CalculatorPage() {
     setSaved(false);
   };
 
+  // ─── Anomaly validation ──────────────────────────────────────────────────
+  const anomalies = useMemo(() => {
+    const warnings: string[] = [];
+    const smeThresholds: Record<string, { field: keyof MonthlyRow; limit: number; label: string }> = {
+      gas: { field: "naturalGas_m3", limit: 100000, label: "Natural gas > 100,000 m³/month" },
+      elec: { field: "electricity_kWh", limit: 1000000, label: "Electricity > 1,000,000 kWh/month" },
+      diesel: { field: "diesel_L", limit: 50000, label: "Diesel > 50,000 L/month" },
+    };
+    monthlyData.forEach((m, i) => {
+      Object.values(smeThresholds).forEach(({ field, limit, label }) => {
+        if ((m[field] as number) > limit) {
+          warnings.push(`${MONTHS[i]}: ${label}`);
+        }
+      });
+    });
+    return warnings;
+  }, [monthlyData]);
+
   // ─── Save to Supabase ────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!company) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      return;
+    }
+    // Warn on anomalies but allow save
+    if (anomalies.length > 0 && !window.confirm(
+      `⚠ Anomalous values detected:\n\n${anomalies.join('\n')}\n\nSave anyway?`
+    )) {
       return;
     }
     setSaving(true);
@@ -375,7 +403,7 @@ export default function CalculatorPage() {
       setSaving(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, year, monthlyData, headcount]);
+  }, [company, year, monthlyData, headcount, anomalies]);
 
   // Calculate grid factors - prefer DB, fallback to static
   const countryEntry = GRID_FACTORS.find(c => c.name.toLowerCase() === country.toLowerCase());
@@ -468,12 +496,16 @@ export default function CalculatorPage() {
       const s3_commute = s3_car + s3_bus + s3_train;
       const scope3 = s3_flights + s3_commute;
 
+      // Round scopes first, then derive total from rounded values to avoid drift
+      const rScope1 = r(scope1);
+      const rScope2 = r(scope2);
+      const rScope3 = r(scope3);
       return {
-        scope1: r(scope1),
-        scope2: r(scope2),
+        scope1: rScope1,
+        scope2: rScope2,
         scope2Market: r(scope2Market),
-        scope3: r(scope3),
-        total: r(scope1 + scope2 + scope3),
+        scope3: rScope3,
+        total: r(rScope1 + rScope2 + rScope3),
         s1_stationary: r(s1_stationary),
         s1_fleet: r(s1_fleet),
         s2_electricity: r(s2_elecLoc),
@@ -788,7 +820,7 @@ export default function CalculatorPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <FuelRow label="Natural Gas" unit="m³" field="naturalGas_m3" data={monthlyData} onChange={updateMonth} />
+                          <GasRow gasUnit={gasUnit} setGasUnit={setGasUnit} convFactor={GAS_KWH_PER_M3} data={monthlyData} onChange={updateMonth} />
                           <FuelRow label="Diesel / Gas Oil" unit="L" field="diesel_L" data={monthlyData} onChange={updateMonth} />
                           <FuelRow label="Petrol" unit="L" field="petrol_L" data={monthlyData} onChange={updateMonth} />
                           <FuelRow label="LPG" unit="L" field="lpg_L" data={monthlyData} onChange={updateMonth} />
@@ -823,6 +855,11 @@ export default function CalculatorPage() {
                         </tbody>
                       </table>
                     </div>
+                    {annualTotals.s1_fleet === 0 && (
+                      <p className="text-[10px] text-amber-500 mt-2 px-2 flex items-center gap-1">
+                        ⚠ Fleet = 0 — if no fleet data available, leave blank. For auditors, 0 ≠ &quot;no data&quot;.
+                      </p>
+                    )}
                     <p className="text-[10px] text-gray-300 mt-2 px-2">
                       Factors: diesel car 0.17304, petrol car 0.16272 kgCO2e/km (DEFRA {year})
                     </p>
@@ -1144,6 +1181,55 @@ export default function CalculatorPage() {
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
+
+function GasRow({
+  gasUnit,
+  setGasUnit,
+  convFactor,
+  data,
+  onChange,
+}: {
+  gasUnit: "m3" | "kWh";
+  setGasUnit: (u: "m3" | "kWh") => void;
+  convFactor: number;
+  data: MonthlyRow[];
+  onChange: (month: number, field: keyof MonthlyRow, value: number) => void;
+}) {
+  // Display value: if kWh mode, show m³ * convFactor
+  const toDisplay = (m3: number) => gasUnit === "kWh" ? Math.round(m3 * convFactor * 100) / 100 : m3;
+  const fromDisplay = (val: number) => gasUnit === "kWh" ? val / convFactor : val;
+  const total = data.reduce((sum, m) => sum + toDisplay(m.naturalGas_m3), 0);
+  return (
+    <tr className="border-b border-gray-50 hover:bg-gray-50/30">
+      <td className="py-1.5 px-2">
+        <span className="text-gray-600 font-medium">Natural Gas</span>
+        <button
+          onClick={() => setGasUnit(gasUnit === "m3" ? "kWh" : "m3")}
+          className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded border border-blue-200 text-blue-500 hover:bg-blue-50 transition-colors"
+          title="Toggle between m³ and kWh"
+        >
+          {gasUnit === "m3" ? "m³" : "kWh"}
+        </button>
+      </td>
+      {data.map((m, i) => (
+        <td key={i} className="py-1 px-0.5">
+          <input
+            type="number"
+            value={toDisplay(m.naturalGas_m3) || ""}
+            onChange={e => onChange(i, "naturalGas_m3", fromDisplay(parseFloat(e.target.value) || 0))}
+            className="w-full px-1.5 py-1 text-right text-xs font-mono border border-gray-100 rounded-md
+              focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white
+              hover:border-gray-300 transition-colors"
+            min={0}
+          />
+        </td>
+      ))}
+      <td className="py-1.5 px-2 text-right font-mono font-semibold text-gray-700 whitespace-nowrap">
+        {fmtNum(total)}
+      </td>
+    </tr>
+  );
+}
 
 function FuelRow({
   label,

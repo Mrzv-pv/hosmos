@@ -33,6 +33,18 @@ interface ReportData {
 
 export type { ReportData }
 
+// ── Helper: detect evenly distributed data (÷12) ──
+function isEvenlyDistributed(monthlyData: { scope1: number; scope2: number; scope3: number }[]): boolean {
+  if (monthlyData.length !== 12) return false
+  // Check if all months have identical values (within 1% tolerance)
+  const ref = monthlyData[0]
+  return monthlyData.every(m =>
+    Math.abs(m.scope1 - ref.scope1) < ref.scope1 * 0.01 + 0.01 &&
+    Math.abs(m.scope2 - ref.scope2) < ref.scope2 * 0.01 + 0.01 &&
+    Math.abs(m.scope3 - ref.scope3) < ref.scope3 * 0.01 + 0.01
+  )
+}
+
 // ── Helper: safe percent ──
 function pct(value: number, total: number): string {
   if (!total || total === 0) return '0.0%'
@@ -215,7 +227,18 @@ export function generateGRIReport(data: ReportData): jsPDF {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  y = (doc as any).lastAutoTable.finalY + 15
+  y = (doc as any).lastAutoTable.finalY + 5
+
+  if (isEvenlyDistributed(data.monthlyData)) {
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(217, 119, 6) // amber
+    doc.text('Note: Monthly values are evenly distributed (÷12). Actual seasonal variation is not reflected.', 14, y)
+    doc.setTextColor(0, 0, 0)
+    y += 5
+  }
+
+  y += 10
 
   // ── Methodology & Data Sources ──
   doc.setFontSize(14)
@@ -240,6 +263,14 @@ export function generateGRIReport(data: ReportData): jsPDF {
     'Base year: Not established (first reporting period)',
     'All emission factors stored in auditable PostgreSQL database with full source traceability',
   ]
+
+  // Flag data gaps (zero = no data provided)
+  const dataGaps: string[] = []
+  if (data.scope1Fleet === 0) dataGaps.push('Company fleet (Scope 1)')
+  if (data.scope3 === 0) dataGaps.push('Scope 3 (business travel & commuting)')
+  if (dataGaps.length > 0) {
+    methodology.push(`Data gaps: ${dataGaps.join(', ')} reported as zero — actual data not yet available. These are data gaps, not confirmed zero-emission categories`)
+  }
 
   methodology.forEach(line => {
     doc.text('  •  ' + line, 14, y)
@@ -453,7 +484,18 @@ export function generateESRSReport(data: ReportData): jsPDF {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  y = (doc as any).lastAutoTable.finalY + 15
+  y = (doc as any).lastAutoTable.finalY + 5
+
+  if (isEvenlyDistributed(data.monthlyData)) {
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(217, 119, 6)
+    doc.text('Note: Monthly values are evenly distributed (÷12). Actual seasonal variation is not reflected.', 14, y)
+    doc.setTextColor(0, 0, 0)
+    y += 5
+  }
+
+  y += 10
 
   // ── E1-1 / E1-9: Methodology & policies ──
   doc.setFontSize(13)
@@ -478,6 +520,14 @@ export function generateESRSReport(data: ReportData): jsPDF {
     'Emission factors sourced from auditable database with full provenance tracking',
     'Financial materiality assessment: Climate risks identified as material per double materiality analysis',
   ]
+
+  // Flag data gaps for auditor transparency
+  const esrsGaps: string[] = []
+  if (data.scope1Fleet === 0) esrsGaps.push('Company fleet (Scope 1)')
+  if (data.scope3 === 0) esrsGaps.push('Scope 3 (Cat. 6, 7)')
+  if (esrsGaps.length > 0) {
+    esrsMethodology.push(`Data gaps: ${esrsGaps.join(', ')} reported as zero — actual activity data not yet collected. These represent data gaps, not confirmed zero-emission categories`)
+  }
 
   esrsMethodology.forEach(line => {
     const lines = doc.splitTextToSize('  •  ' + line, pageWidth - 28)
