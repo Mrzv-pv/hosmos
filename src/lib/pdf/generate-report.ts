@@ -19,6 +19,7 @@ interface ReportData {
   scope3: number
   total: number
   perEmployee: number
+  governanceData?: Record<string, boolean>
   monthlyData: {
     month: string
     scope1: number
@@ -577,6 +578,67 @@ export function generateESRSReport(data: ReportData): jsPDF {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   y = (doc as any).lastAutoTable.finalY + 15
+
+  // ── ESRS G1: Governance Section (if data available) ──
+  if (data.governanceData && Object.keys(data.governanceData).length > 0) {
+    doc.addPage()
+    y = 20
+
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text('ESRS G1 — Business Conduct: Governance Checklist', 14, y)
+    y += 10
+
+    const govCategories = [
+      { name: 'Board & Leadership', esrs: 'G1-1, G1-3', items: ['Board composition documented', 'Independent directors identified', 'Board diversity policy', 'Executive compensation disclosure', 'Board ESG committee'] },
+      { name: 'Ethics & Anti-corruption', esrs: 'G1-3, G1-4', items: ['Code of ethics published', 'Anti-corruption policy', 'Whistleblowing channel active', 'Conflict of interest policy', 'Political contributions policy', 'Anti-bribery training completed'] },
+      { name: 'Data Protection & Privacy', esrs: 'G1-1', items: ['GDPR compliance assessment', 'Data Processing Agreement (DPA)', 'Privacy policy published', 'Data breach notification process', 'DPO appointed', 'Data retention policy'] },
+      { name: 'Risk Management', esrs: 'G1-2, G1-5', items: ['Risk register maintained', 'Risk assessment methodology', 'Business continuity plan', 'Internal audit function', 'Regulatory compliance monitoring'] },
+    ]
+
+    const govBody: string[][] = []
+    govCategories.forEach(cat => {
+      cat.items.forEach((item, idx) => {
+        const done = data.governanceData?.[item] ?? false
+        govBody.push([
+          idx === 0 ? cat.name : '',
+          item,
+          cat.esrs,
+          done ? '✓ Complete' : '○ Pending',
+        ])
+      })
+    })
+
+    const totalGov = govBody.length
+    const doneGov = govBody.filter(r => r[3].includes('✓')).length
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Overall completion: ${doneGov} / ${totalGov} (${Math.round(doneGov / totalGov * 100)}%)`, 14, y)
+    y += 8
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Category', 'Parameter', 'ESRS Ref', 'Status']],
+      body: govBody,
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246] },
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 7 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 3: { cellWidth: 22 } },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'body' && hookData.column.index === 3) {
+          const val = hookData.cell.raw as string
+          if (val.includes('✓')) hookData.cell.styles.textColor = [34, 197, 94]
+          else hookData.cell.styles.textColor = [217, 119, 6]
+        }
+      },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 10
+  }
 
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')

@@ -211,6 +211,7 @@ export async function updateCompany(
     reporting_year?: string;
     currency?: string;
     logo_url?: string;
+    governance_data?: Record<string, boolean>;
   }
 ) {
   const supabase = await createClient();

@@ -191,6 +191,7 @@ export default function ReportsPage() {
                     total: m.total ?? 0,
                   }))
                 : makeDemoMonthly(tot),
+              governanceData: (comp as Record<string, unknown>).governance_data as Record<string, boolean> | undefined,
               gridCountry: grid?.country_name || comp.country || reportData.gridCountry,
               gridLocation: grid ? Math.round(grid.location_kwh * 1000) : reportData.gridLocation,
               gridMarket: grid ? Math.round(grid.market_kwh * 1000) : reportData.gridMarket,
