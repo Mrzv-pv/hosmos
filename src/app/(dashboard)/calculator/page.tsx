@@ -28,6 +28,7 @@ import {
   type DbFlightFactor,
   type DbCompany,
 } from "@/lib/supabase/queries";
+import { updateCompany } from "@/lib/supabase/queries/company-data";
 import {
   Flame,
   Zap,
@@ -297,6 +298,14 @@ export default function CalculatorPage() {
     setSaving(true);
     try {
       const yearNum = parseInt(year);
+      // Persist country, reporting year, and headcount to the company profile
+      const countryEntryForSave = GRID_FACTORS.find(c => c.name.toLowerCase() === country.toLowerCase());
+      await updateCompany(company.id, {
+        headcount,
+        reporting_year: year,
+        country,
+        country_code: countryEntryForSave?.code ?? company.country_code ?? "SI",
+      });
       // Save each month's data
       await Promise.all(
         monthlyData.map((m, i) =>
