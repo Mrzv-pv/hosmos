@@ -12,6 +12,8 @@ interface ReportData {
   scope1: number
   scope1Stationary: number
   scope1Fleet: number
+  scope1Lpg: number
+  biogenicCO2: number  // wood combustion biogenic CO₂ (outside of scopes)
   scope2Location: number
   scope2Market: number
   scope3: number
@@ -131,12 +133,14 @@ export function generateGRIReport(data: ReportData): jsPDF {
     head: [['GRI Disclosure', 'Category', 'tCO2e', '% of Total']],
     body: [
       ['GRI 305-1', 'Scope 1 — Stationary combustion', data.scope1Stationary.toFixed(2), pct(data.scope1Stationary, data.total)],
+      ...(data.scope1Lpg > 0 ? [['', '    of which: LPG / propane', data.scope1Lpg.toFixed(2), pct(data.scope1Lpg, data.total)]] : []),
       ['GRI 305-1', 'Scope 1 — Company fleet', data.scope1Fleet.toFixed(2), pct(data.scope1Fleet, data.total)],
       ['GRI 305-1', 'Scope 1 — Total direct emissions', data.scope1.toFixed(2), pct(data.scope1, data.total)],
       ['GRI 305-2', 'Scope 2 — Location-based', data.scope2Location.toFixed(2), pct(data.scope2Location, data.total)],
       ['GRI 305-2', 'Scope 2 — Market-based', data.scope2Market.toFixed(2), '—'],
       ['GRI 305-3', 'Scope 3 — Business travel & commuting', data.scope3.toFixed(2), pct(data.scope3, data.total)],
       ['GRI 305-1/2/3', 'Total GHG emissions', data.total.toFixed(2), '100%'],
+      ...(data.biogenicCO2 > 0 ? [['GRI 305-1', 'Biogenic CO₂ (outside of scopes)', data.biogenicCO2.toFixed(2), '—']] : []),
     ],
     theme: 'striped',
     headStyles: { fillColor: [91, 94, 234] },
@@ -144,8 +148,11 @@ export function generateGRIReport(data: ReportData): jsPDF {
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 30 } },
     didParseCell: (hookData) => {
-      if (hookData.row.index === 2 || hookData.row.index === 6) {
-        hookData.cell.styles.fontStyle = 'bold'
+      if (hookData.section === 'body' && hookData.column.index === 1) {
+        const val = String(hookData.cell.raw)
+        if (val.startsWith('Scope 1 — Total') || val.startsWith('Total GHG')) {
+          hookData.cell.styles.fontStyle = 'bold'
+        }
       }
     },
   })
@@ -227,7 +234,9 @@ export function generateGRIReport(data: ReportData): jsPDF {
     `Scope 1: DEFRA/DESNZ Conversion Factors ${data.reportingYear}`,
     'Scope 2: Dual reporting — location-based (IEA/EEA production mix) and market-based (AIB residual mix)',
     `Grid factors: ${data.gridCountry} — ${data.gridLocation} gCO2/kWh (location) / ${data.gridMarket} gCO2/kWh (market)`,
+    `Scope 1 biomass: Wood combustion (beech logs for smoking) — biogenic CO₂ reported outside of scopes per GHG Protocol; only CH₄ + N₂O included in Scope 1`,
     `Scope 3: DEFRA factors — Category 6 (business travel), Category 7 (employee commuting)`,
+    'Scope 3 methodology: Activity-based approach using distance-based emission factors. Categories 1-5 (purchased goods, capital goods, fuel & energy, upstream transport, waste) not yet quantified — to be included in future periods',
     'Base year: Not established (first reporting period)',
     'All emission factors stored in auditable PostgreSQL database with full source traceability',
   ]
@@ -356,6 +365,7 @@ export function generateESRSReport(data: ReportData): jsPDF {
     head: [['ESRS Datapoint', 'Category', 'tCO2e', '% of Total']],
     body: [
       ['E1-6 §44(a)', 'Scope 1 — Stationary combustion', data.scope1Stationary.toFixed(2), pct(data.scope1Stationary, data.total)],
+      ...(data.scope1Lpg > 0 ? [['', '    of which: LPG / propane', data.scope1Lpg.toFixed(2), pct(data.scope1Lpg, data.total)]] : []),
       ['E1-6 §44(a)', 'Scope 1 — Mobile combustion (fleet)', data.scope1Fleet.toFixed(2), pct(data.scope1Fleet, data.total)],
       ['', 'Scope 1 — Total gross direct', data.scope1.toFixed(2), pct(data.scope1, data.total)],
       ['E1-6 §44(b)', 'Scope 2 — Location-based', data.scope2Location.toFixed(2), pct(data.scope2Location, data.total)],
@@ -365,6 +375,7 @@ export function generateESRSReport(data: ReportData): jsPDF {
       ['', 'Scope 3 — Total', data.scope3.toFixed(2), pct(data.scope3, data.total)],
       ['E1-6 §50', 'Total GHG (location-based)', data.total.toFixed(2), '100%'],
       ['E1-6 §50', 'Total GHG (market-based)', totalMarket.toFixed(2), '—'],
+      ...(data.biogenicCO2 > 0 ? [['E1-6 §51', 'Biogenic CO₂ (outside of scopes)', data.biogenicCO2.toFixed(2), '—']] : []),
     ],
     theme: 'striped',
     headStyles: { fillColor: [109, 72, 217] },
@@ -372,8 +383,11 @@ export function generateESRSReport(data: ReportData): jsPDF {
     styles: { fontSize: 8 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 28 } },
     didParseCell: (hookData) => {
-      if (hookData.row.index === 2 || hookData.row.index === 7 || hookData.row.index === 8 || hookData.row.index === 9) {
-        hookData.cell.styles.fontStyle = 'bold'
+      if (hookData.section === 'body' && hookData.column.index === 1) {
+        const val = String(hookData.cell.raw)
+        if (val.startsWith('Scope 1 — Total') || val.startsWith('Scope 3 — Total') || val.startsWith('Total GHG')) {
+          hookData.cell.styles.fontStyle = 'bold'
+        }
       }
     },
   })
@@ -455,10 +469,11 @@ export function generateESRSReport(data: ReportData): jsPDF {
     'GHG accounting: GHG Protocol Corporate Standard — operational control approach',
     'Gases reported: CO2, CH4, N2O expressed as CO2-equivalents (IPCC AR5 GWP)',
     `Scope 1: DEFRA/DESNZ ${data.reportingYear} emission factors for stationary combustion and company vehicles`,
+    'Scope 1 biomass: Biogenic CO₂ from wood combustion (beech logs) disclosed separately per E1-6 §51; only CH₄ + N₂O in Scope 1 total',
     'Scope 2: Dual reporting — location-based (IEA/EEA production mix) and market-based (AIB residual mix)',
     `Grid factors: ${data.gridCountry} — ${data.gridLocation} gCO2/kWh (location) / ${data.gridMarket} gCO2/kWh (market)`,
-    'Scope 3: Categories 6 (business travel) and 7 (employee commuting) per GHG Protocol Scope 3 Standard',
-    'Significant Scope 3 categories (1, 2, 3, 11) not yet quantified — to be included in future reporting',
+    'Scope 3: Categories 6 (business travel) and 7 (employee commuting) — activity-based approach with distance-based DEFRA factors',
+    'Significant Scope 3 categories (1 purchased goods, 2 capital goods, 3 fuel & energy, 4 upstream transport, 5 waste, 11 use of sold products) not yet quantified — to be included in future reporting',
     'No use of carbon credits or offsets in reported figures',
     'Emission factors sourced from auditable database with full provenance tracking',
     'Financial materiality assessment: Climate risks identified as material per double materiality analysis',

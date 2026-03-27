@@ -102,6 +102,8 @@ export default function ReportsPage() {
         scope1: 12.5,
         scope1Stationary: 8.3,
         scope1Fleet: 4.2,
+        scope1Lpg: 0,
+        biogenicCO2: 0,
         scope2Location: 18.7,
         scope2Market: 22.1,
         scope3: 6.8,
@@ -166,6 +168,14 @@ export default function ReportsPage() {
               scope1: s1,
               scope1Stationary: results?.scope1_stationary ?? reportData.scope1Stationary,
               scope1Fleet: results?.scope1_fleet ?? reportData.scope1Fleet,
+              scope1Lpg: monthly && monthly.length > 0
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ? monthly.reduce((sum: number, m: any) => sum + (Number(m.lpg_litres) || 0), 0) * 1.5575 / 1000
+                : 0,
+              biogenicCO2: monthly && monthly.length > 0
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ? monthly.reduce((sum: number, m: any) => sum + (Number(m.biomass_wood_kg) || 0), 0) * 1.838 / 1000
+                : 0,
               scope2Location: s2l,
               scope2Market: results?.scope2_market ?? reportData.scope2Market,
               scope3: s3,

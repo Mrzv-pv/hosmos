@@ -65,6 +65,7 @@ interface MonthlyRow {
   petrol_L: number;
   lpg_L: number;
   fuelOil_L: number;
+  biomassWood_kg: number;
   // Scope 1 - Fleet
   fleetDiesel_km: number;
   fleetPetrol_km: number;
@@ -115,6 +116,7 @@ function createDemoMonth(m: number): MonthlyRow {
     petrol_L: 0,
     lpg_L: 0,
     fuelOil_L: 0,
+    biomassWood_kg: 0,
     fleetDiesel_km: Math.round(8333),                   // ~100,000 total
     fleetPetrol_km: Math.round(3000),                   // ~36,000 total
     fleetEV_km: 0,
@@ -138,6 +140,7 @@ interface CalculatorFactors {
   petrol_L: number;
   lpg_L: number;
   fuelOil_L: number;
+  biomassWood_kg: number;  // non-biogenic only (CH₄ + N₂O)
   // Vehicles (kgCO2e per km)
   fleetDiesel_km: number;
   fleetPetrol_km: number;
@@ -175,6 +178,7 @@ function buildFactorMap(
     petrol_L:            fuelVal('petrol_biofuel_litre')  ?? EMISSION_FACTORS.petrol,
     lpg_L:               fuelVal('lpg_litre')             ?? EMISSION_FACTORS.lpg,
     fuelOil_L:           fuelVal('fuel_oil_litre')        ?? 2.96,
+    biomassWood_kg:      (fuelVal('wood_logs_tonne')     ?? 47.03) / 1000, // convert tonne factor to per-kg
     fleetDiesel_km:      vehVal('car_diesel_avg')         ?? EMISSION_FACTORS.vehicles.car_diesel,
     fleetPetrol_km:      vehVal('car_petrol_avg')         ?? EMISSION_FACTORS.vehicles.car_petrol,
     fleetEV_km:          vehVal('car_bev_avg')            ?? EMISSION_FACTORS.vehicles.car_bev,
@@ -249,6 +253,7 @@ export default function CalculatorPage() {
                   petrol_L: Number(row.petrol_litres) || 0,
                   lpg_L: Number(row.lpg_litres) || 0,
                   fuelOil_L: Number(row.fuel_oil_litres) || 0,
+                  biomassWood_kg: Number(row.biomass_wood_kg) || 0,
                   fleetDiesel_km: Number(row.fleet_diesel_km) || 0,
                   fleetPetrol_km: Number(row.fleet_petrol_km) || 0,
                   fleetEV_km: Number(row.fleet_ev_km) || 0,
@@ -317,6 +322,7 @@ export default function CalculatorPage() {
             petrol_litres: m.petrol_L,
             lpg_litres: m.lpg_L,
             fuel_oil_litres: m.fuelOil_L,
+            biomass_wood_kg: m.biomassWood_kg,
             fleet_diesel_km: m.fleetDiesel_km,
             fleet_petrol_km: m.fleetPetrol_km,
             fleet_ev_km: m.fleetEV_km,
@@ -406,6 +412,7 @@ export default function CalculatorPage() {
       petrol_L: EMISSION_FACTORS.petrol,
       lpg_L: EMISSION_FACTORS.lpg,
       fuelOil_L: 2.96,
+      biomassWood_kg: 0.04703,  // wood logs non-biogenic (CH₄+N₂O), DEFRA 2024
       fleetDiesel_km: EMISSION_FACTORS.vehicles.car_diesel,
       fleetPetrol_km: EMISSION_FACTORS.vehicles.car_petrol,
       fleetEV_km: EMISSION_FACTORS.vehicles.car_bev,
@@ -430,7 +437,8 @@ export default function CalculatorPage() {
       const s1_petrol = (m.petrol_L * EF.petrol_L) / 1000;
       const s1_lpg = (m.lpg_L * EF.lpg_L) / 1000;
       const s1_fuelOil = (m.fuelOil_L * EF.fuelOil_L) / 1000;
-      const s1_stationary = s1_gas + s1_diesel + s1_petrol + s1_lpg + s1_fuelOil;
+      const s1_biomass = (m.biomassWood_kg * EF.biomassWood_kg) / 1000; // non-biogenic only
+      const s1_stationary = s1_gas + s1_diesel + s1_petrol + s1_lpg + s1_fuelOil + s1_biomass;
 
       // Scope 1 - Fleet
       const s1_fleetD = (m.fleetDiesel_km * EF.fleetDiesel_km) / 1000;
@@ -785,6 +793,7 @@ export default function CalculatorPage() {
                           <FuelRow label="Petrol" unit="L" field="petrol_L" data={monthlyData} onChange={updateMonth} />
                           <FuelRow label="LPG" unit="L" field="lpg_L" data={monthlyData} onChange={updateMonth} />
                           <FuelRow label="Fuel Oil" unit="L" field="fuelOil_L" data={monthlyData} onChange={updateMonth} />
+                          <FuelRow label="Beech wood (biomass)" unit="kg" field="biomassWood_kg" data={monthlyData} onChange={updateMonth} />
                         </tbody>
                       </table>
                     </div>
