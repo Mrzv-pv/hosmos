@@ -195,13 +195,13 @@ export async function getEmissionFactorSources() {
 
 // ── Monthly Emissions Data ──
 
-export async function getMonthlyEmissions(companyId: string, year: number) {
+export async function getMonthlyEmissions(companyId: string, year: string | number) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('monthly_emissions_data')
     .select('*')
     .eq('company_id', companyId)
-    .eq('year', year)
+    .eq('year', String(year))
     .order('month')
   if (error) throw error
   return data ?? []
@@ -209,7 +209,7 @@ export async function getMonthlyEmissions(companyId: string, year: number) {
 
 export async function saveMonthlyEmission(
   companyId: string,
-  year: number,
+  year: string | number,
   month: number,
   rowData: Record<string, number>
 ) {
@@ -217,7 +217,7 @@ export async function saveMonthlyEmission(
   const { data, error } = await supabase
     .from('monthly_emissions_data')
     .upsert(
-      { company_id: companyId, year, month, ...rowData },
+      { company_id: companyId, year: String(year), month, ...rowData },
       { onConflict: 'company_id,year,month' }
     )
     .select()
@@ -228,7 +228,7 @@ export async function saveMonthlyEmission(
 
 export async function saveEmissionResults(
   companyId: string,
-  year: number,
+  year: string | number,
   results: {
     scope1_total: number
     scope2_location: number
@@ -242,7 +242,7 @@ export async function saveEmissionResults(
   const { data, error } = await supabase
     .from('emission_results')
     .upsert(
-      { company_id: companyId, year, ...results },
+      { company_id: companyId, year: String(year), ...results },
       { onConflict: 'company_id,year' }
     )
     .select()

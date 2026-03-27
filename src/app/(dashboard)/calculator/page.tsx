@@ -217,19 +217,20 @@ export default function CalculatorPage() {
     async function load() {
       try {
         const yearNum = parseInt(year);
+        // Each factor query is independent — failure must not block company/monthly load
         const [fuels, vehicles, flights, grid, heat, scope3, comp] = await Promise.all([
-          getStationaryFuelFactors(yearNum),
-          getVehicleFactors(yearNum),
-          getFlightFactors(yearNum),
-          getGridFactors(yearNum),
-          getHeatFactors(yearNum),
-          getScope3Factors(yearNum),
+          getStationaryFuelFactors(yearNum).catch(() => []),
+          getVehicleFactors(yearNum).catch(() => []),
+          getFlightFactors(yearNum).catch(() => []),
+          getGridFactors(yearNum).catch(() => []),
+          getHeatFactors(yearNum).catch(() => []),
+          getScope3Factors(yearNum).catch(() => []),
           getCurrentCompany(),
         ]);
         if (cancelled) return;
 
-        setDbFactors(buildFactorMap(fuels, vehicles, flights, heat, scope3));
-        setDbGridFactors(grid);
+        if (fuels.length) setDbFactors(buildFactorMap(fuels, vehicles, flights, heat, scope3));
+        if (grid.length) setDbGridFactors(grid);
 
         if (comp) {
           setCompany(comp);
