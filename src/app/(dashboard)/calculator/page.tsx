@@ -309,8 +309,9 @@ export default function CalculatorPage() {
       });
       // Save each month's data
       await Promise.all(
-        monthlyData.map((m, i) =>
-          saveMonthlyEmission(company.id, yearNum, i + 1, {
+        monthlyData.map((m, i) => {
+          const mr = monthlyResults[i];
+          return saveMonthlyEmission(company.id, yearNum, i + 1, {
             natural_gas_m3: m.naturalGas_m3,
             diesel_litres: m.diesel_L,
             petrol_litres: m.petrol_L,
@@ -328,21 +329,30 @@ export default function CalculatorPage() {
             commute_car_km: m.commuteCar_km,
             commute_bus_km: m.commuteBus_km,
             commute_train_km: m.commuteTrain_km,
-          })
-        )
+            // Persist computed emissions so dashboard/reports use same values
+            scope1: Math.round(mr.scope1 * 100) / 100,
+            scope2: Math.round(mr.scope2 * 100) / 100,
+            scope3: Math.round(mr.scope3 * 100) / 100,
+            total: Math.round(mr.total * 100) / 100,
+          });
+        })
       );
       // Save annual results
       const totals = monthlyResults.reduce(
         (acc, r) => ({
           scope1: acc.scope1 + r.scope1,
+          s1_stationary: acc.s1_stationary + r.s1_stationary,
+          s1_fleet: acc.s1_fleet + r.s1_fleet,
           scope2: acc.scope2 + r.scope2,
           scope2Market: acc.scope2Market + r.scope2Market,
           scope3: acc.scope3 + r.scope3,
           total: acc.total + r.total,
         }),
-        { scope1: 0, scope2: 0, scope2Market: 0, scope3: 0, total: 0 }
+        { scope1: 0, s1_stationary: 0, s1_fleet: 0, scope2: 0, scope2Market: 0, scope3: 0, total: 0 }
       );
       await saveEmissionResults(company.id, yearNum, {
+        scope1_stationary: Math.round(totals.s1_stationary * 100) / 100,
+        scope1_fleet: Math.round(totals.s1_fleet * 100) / 100,
         scope1_total: Math.round(totals.scope1 * 100) / 100,
         scope2_location: Math.round(totals.scope2 * 100) / 100,
         scope2_market: Math.round(totals.scope2Market * 100) / 100,

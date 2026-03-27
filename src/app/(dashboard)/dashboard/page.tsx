@@ -25,21 +25,13 @@ import { usePlan } from "@/hooks/usePlan";
 import { Crown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-// Monthly breakdown (pro-rata from annual totals)
-const monthlyEmissions = [
-  { month: "Jan", scope1: 6.8, scope2: 8.5 },
-  { month: "Feb", scope1: 6.5, scope2: 8.1 },
-  { month: "Mar", scope1: 6.2, scope2: 7.8 },
-  { month: "Apr", scope1: 5.5, scope2: 6.9 },
-  { month: "May", scope1: 5.2, scope2: 6.5 },
-  { month: "Jun", scope1: 5.0, scope2: 6.2 },
-  { month: "Jul", scope1: 5.3, scope2: 7.8 },
-  { month: "Aug", scope1: 4.9, scope2: 7.2 },
-  { month: "Sep", scope1: 5.8, scope2: 7.0 },
-  { month: "Oct", scope1: 6.4, scope2: 7.5 },
-  { month: "Nov", scope1: 6.9, scope2: 7.9 },
-  { month: "Dec", scope1: 7.3, scope2: 8.6 },
-];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Fallback monthly breakdown (pro-rata from annual totals)
+const DEFAULT_MONTHLY = MONTHS.map((month, i) => {
+  const winter = (i <= 1 || i >= 10) ? 1.3 : (i >= 4 && i <= 8) ? 0.8 : 1.0;
+  return { month, scope1: 6.0 * winter, scope2: 7.5 * winter, scope3: 3.0 };
+});
 
 const recentActivity = [
   { action: "Scope 1 data updated — fleet mileage Q4", time: "2 hours ago", type: "edit" },
@@ -55,6 +47,7 @@ export default function DashboardPage() {
   const [scope1, setScope1] = useState(DEMO_SCOPE1);
   const [scope2, setScope2] = useState(DEMO_SCOPE2);
   const [scope3, setScope3] = useState(DEMO_SCOPE3);
+  const [monthlyEmissions, setMonthlyEmissions] = useState(DEFAULT_MONTHLY);
   const { plan, features } = usePlan();
 
   useEffect(() => {
@@ -102,11 +95,11 @@ export default function DashboardPage() {
               .from('emission_results')
               .select('*')
               .eq('company_id', comp.id)
-              .eq('year', parseInt(comp.reporting_year || '2024'))
+              .eq('year', comp.reporting_year || '2024')
               .single();
 
             if (results) {
-              setScope1({ stationaryCombustion_tCO2e: 0, mobileFleet_tCO2e: 0, total_tCO2e: results.scope1_total || 0 });
+              setScope1({ stationaryCombustion_tCO2e: results.scope1_stationary || 0, mobileFleet_tCO2e: results.scope1_fleet || 0, total_tCO2e: results.scope1_total || 0 });
               setScope2({ locationBased_tCO2e: results.scope2_location || 0, marketBased_tCO2e: results.scope2_market || 0, total_tCO2e: results.scope2_location || 0 });
               setScope3({ categories: [], total_tCO2e: results.scope3_total || 0 });
 
@@ -120,6 +113,29 @@ export default function DashboardPage() {
                 emissionsPerEmployee: comp.headcount ? +(total / comp.headcount).toFixed(2) : prev.emissionsPerEmployee,
               }));
             }
+
+            // Load monthly emissions data for chart (single source of truth)
+            const reportYear = comp.reporting_year || '2024';
+            const { data: monthlyRows } = await supabase
+              .from('monthly_emissions_data')
+              .select('month, scope1, scope2, scope3, total')
+              .eq('company_id', comp.id)
+              .eq('year', reportYear)
+              .order('month');
+
+            if (monthlyRows && monthlyRows.length > 0) {
+              const loaded = MONTHS.map((month, i) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const row = monthlyRows.find((r: any) => r.month === i + 1);
+                return {
+                  month,
+                  scope1: Number(row?.scope1) || 0,
+                  scope2: Number(row?.scope2) || 0,
+                  scope3: Number(row?.scope3) || 0,
+                };
+              });
+              setMonthlyEmissions(loaded);
+            }
           }
         }
       } catch (e) {
@@ -132,7 +148,7 @@ export default function DashboardPage() {
   }, []);
 
   const d = dashboard;
-  const maxEmission = Math.max(...monthlyEmissions.map((m) => m.scope1 + m.scope2));
+  const maxEmission = Math.max(...monthlyEmissions.map((m) => m.scope1 + m.scope2 + (m.scope3 || 0)));
 
   const scope1Change = Math.round(((d.scope1 - d.previousYear.scope1) / d.previousYear.scope1) * 100);
   const scope2Change = Math.round(((d.scope2 - d.previousYear.scope2) / d.previousYear.scope2) * 100);

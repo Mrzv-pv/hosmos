@@ -230,6 +230,8 @@ export async function saveEmissionResults(
   companyId: string,
   year: string | number,
   results: {
+    scope1_stationary?: number
+    scope1_fleet?: number
     scope1_total: number
     scope2_location: number
     scope2_market: number
