@@ -177,10 +177,14 @@ export default function GovernancePage() {
                 {group.items.map((item) => {
                   const done = !!checkedItems[item];
                   return (
-                    <label
+                    <div
                       key={item}
+                      role="checkbox"
+                      aria-checked={done}
+                      tabIndex={0}
                       className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-all select-none"
                       onClick={() => toggleItem(item)}
+                      onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleItem(item); } }}
                     >
                       {done ? (
                         <CheckCircle2 size={20} className="text-green-500 flex-shrink-0" />
@@ -194,7 +198,7 @@ export default function GovernancePage() {
                       >
                         {item}
                       </span>
-                    </label>
+                    </div>
                   );
                 })}
               </div>
